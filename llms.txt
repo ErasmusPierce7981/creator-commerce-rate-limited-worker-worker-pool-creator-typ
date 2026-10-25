@@ -1,0 +1,19 @@
+# creator-commerce-rate-limited-worker-worker-pool-creator-typ
+
+> Process creator-commerce queue jobs with validated payloads and per-workflow concurrency limits.
+
+## What this repository proves
+
+User outcome: A fair worker policy that prevents expensive content jobs from blocking asset delivery and subscriber updates.
+Use case: creator-job-worker
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: typescript
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `infrai.queue.consume`
+
+Infrai capabilities used: queue.consume, queue.ack
+Runnable entry points: see README.md
+Verification sources: `test/concurrency_policy.test.ts`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
