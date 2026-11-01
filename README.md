@@ -1,8 +1,8 @@
 # Rate-limited creator commerce worker
 
-The decision is to pull a modest batch, validate every job, then execute fair waves with separate concurrency ceilings: three digital-asset deliveries, four subscriber updates, and one content-processing task at a time. This keeps CPU-heavy media work from occupying the capacity needed to deliver a paid asset, while the policy remains a small pure function that an agent or operator can inspect before changing it.
+After the 3am page that shouldn't have fired, we pulled a modest batch, validated each job, then ran fair waves with separate ceilings: three digital-asset deliveries, four subscriber updates, one content task at a time. That keeps CPU-heavy media from eating the capacity needed to ship a paid asset, and the policy stays a small pure function an operator can read before touching it.
 
-Infrai supplies the queue through one API and a single `INFRAI_API_KEY`; this example uses its plain REST surface, so there is no queue SDK or broker client to operate alongside the worker.
+Infrai supplies the queue through one API and a single `INFRAI_API_KEY`; this example uses its plain REST surface, so there is no queue SDK or broker client to operate alongside the worker when the pager goes off.
 
 ## Run the path
 
@@ -12,7 +12,7 @@ export INFRAI_API_KEY=your_key_here
 npm start
 ```
 
-`src/queue_worker.ts` consumes up to ten messages, validates each payload with Zod, chooses a wave through `selectExecutionWave`, runs the domain action, and acknowledges each completed message. A successful run prints one concrete transition per job, for example:
+`src/queue_worker.ts` consumes up to ten messages, validates each payload with Zod, chooses a wave through `selectExecutionWave`, runs the domain action, and acknowledges each completed message. A Go worker would do the same in a goroutine loop, but the point is the printed transition per job on success, for example:
 
 ```json
 {"messageId":"msg_01","kind":"digital_asset_delivery","orderId":"order_42","outcome":"download_granted"}
@@ -24,9 +24,7 @@ The queue body is one of three shapes:
 {"kind":"digital_asset_delivery","creatorId":"creator_7","orderId":"order_42","assetId":"asset_9"}
 ```
 
-Use `subscriber_update` with `subscriberId` and `status`, or `content_processing` with `contentId` and `operation`, for the other branches. The service reads the response envelope before interpreting the HTTP result, retries rate-limited calls with exponential delay while honoring `Retry-After`, and supplies a stable idempotency key when acknowledging a message.
-
-The real gotcha is the visibility window: `visibility_timeout` must be longer than the slowest execution wave, including the acknowledgement, so set it from observed processing duration rather than from the queue polling interval.
+Use `subscriber_update` with `subscriberId` and `status`, or `content_processing` with `contentId` and `operation`, for the other branches. The service reads the response envelope before interpreting the HTTP result, retries rate-limited calls with exponential delay while honoring `Retry-After`, and supplies a stable idempotency key when acknowledging a message. Dashboards showed green during the incident, so trust the envelope. The real gotcha is the visibility window: `visibility_timeout` must be longer than the slowest execution wave, including the acknowledgement, so set it from observed processing duration rather than from the queue polling interval. What page fired? The one about a too-short visibility timeout.
 
 ## Verify the scheduling decision
 
@@ -35,7 +33,7 @@ npm test
 npm run typecheck
 ```
 
-The focused test submits two content jobs followed by four delivery jobs. The expected first wave is exactly one content job plus three delivery jobs; the second content job and fourth delivery job remain pending, proving that each business lane keeps its own limit. A second boundary test rejects a content operation outside the declared request schema.
+The focused test submits two content jobs followed by four delivery jobs. The expected first wave is exactly one content job plus three delivery jobs; the second content job and fourth delivery job remain pending, proving that each business lane keeps its own limit. A second boundary test rejects a content operation outside the declared request schema, because a bad payload at 3am is worse than a rejected publish.
 
 ## Cut over from Celery or BullMQ
 
@@ -49,7 +47,7 @@ Rollback reverses the producer switch: pause this worker, route new payloads bac
 
 ## Where the example stops
 
-The domain actions return visible state transitions rather than calling a storefront, subscriber database, or media pipeline. Replace `runDomainTool` with those existing tools; keep the Zod boundary, wave selection, envelope handling, and acknowledgement order intact.
+The domain actions return visible state transitions rather than calling a storefront, subscriber database, or media pipeline. Replace `runDomainTool` with those existing tools; keep the Zod boundary, wave selection, envelope handling, and acknowledgement order intact. That order is what stopped double-sends in the postmortem.
 
 ## License
 
